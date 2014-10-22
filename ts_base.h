@@ -12,6 +12,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+#define STANDARD_BASE64        1
+#define NON_STANDARD_BASE64    2
+
+
+
 typedef struct evp_Encode_Ctx_st
 {
 	int num;        /* number saved in a partial encode/decode */
@@ -40,9 +46,9 @@ void EVP_EncodeFinal(EVP_ENCODE_CTX *ctx,unsigned char *out,int *outl);
 int	EVP_EncodeBlock(unsigned char *t, const unsigned char *f, int n);
 
 /* base64±àÂë */
-int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned char* strDstData);
+int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned char* strDstData, unsigned int standard);
 
 /* base64½âÂë */
-int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned char* strDstData);
+int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned char* strDstData, unsigned int standard);
 
 #endif

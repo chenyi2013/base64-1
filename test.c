@@ -39,7 +39,7 @@ int test_one()
  * strDstData:存放编码后的数据缓冲区
  * B64Encode(32, out, outLen, (unsigned char*)szDstData);
  */
-	B64Encode(src_str_size, src_str, &encode_str_size, encode_str);
+	B64Encode(src_str_size, src_str, &encode_str_size, encode_str, 1);
 
 
 	printf("encode_str_size=%d encode_str:'%s'  src_str_size = %d \n", encode_str_size, encode_str, src_str_size);
@@ -48,7 +48,7 @@ int test_one()
 
 
 	decode_str = (unsigned char *)malloc(src_str_size);
-	B64Decode(encode_str_size, encode_str, &decode_str_size, decode_str);
+	B64Decode(encode_str_size, encode_str, &decode_str_size, decode_str, 1);
 
 	//int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned char* strDstData)
 
@@ -90,10 +90,10 @@ int main(int argc, char **argv)
 
 			//!< encode test
 	int src_str_size/* = 60*/; 
-	unsigned char *src_str = "h吾问无为谓人人人人人人人人人人人人人人人人人人人人ello qwertyuioplkjhgfdsazxcvbnm,.;'ZXCVBNM<>LKHFADAFQWQTWRY";/* = NULL;*/
+	unsigned char *src_str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><maps><key name =\"shahai_bind\">ZmFsc2U.</key><key name =\"shahai_crypt_data\">DZya0GizgFpofi40KUu3mrw5GdC3PMOP</key><key name =\"shahai_user_name\">am9uZQ..</key><key name =\"shahai_init_time\">MTM2Njc4NDk5MTI1OQ..</key></maps>";/* = NULL;*/
 	int encode_str_size = 0;
 	EVP_ENCODE_CTX ctx;
-	unsigned char *decode_str = NULL;
+	unsigned char *decode_str =  NULL;
 	int decode_str_size = 0;
 	int len = 20;   //!< 每次decode 的字节数  
 	int decode_len = 0;
@@ -104,23 +104,24 @@ int main(int argc, char **argv)
 
 	unsigned char *encode_str = NULL;
 	src_str_size = strlen(src_str);
-	/*src_str = (unsigned char *)malloc(src_str_size);*/
-	/*memset(src_str, '1', src_str_size);*/
-
 
 
 	encode_str = (unsigned char *)malloc( (src_str_size - 1) / 3 * 4 + 4);
 
-	B64Encode(src_str_size, src_str, &encode_str_size, encode_str);
+	B64Encode(src_str_size, src_str, &encode_str_size, encode_str, NON_STANDARD_BASE64);
 
 
-	printf("encode_str_size=%d encode_str:'%s'  src_str_size = %d \n", encode_str_size, encode_str, src_str_size);
+	printf("encode_str_size=%d %d encode_str:'%s'  src_str_size = %d \n", encode_str_size, strlen(encode_str), encode_str, src_str_size);
 
-	decode_str = (unsigned char *)malloc(src_str_size);
-	B64Decode(encode_str_size, encode_str, &decode_str_size, decode_str);
 
-	printf("decode_str:'%s' decode_str_len=%d \n",
-		decode_str, decode_str_size);
+	decode_str = (unsigned char *)malloc(decode_str + 1023);
+	
+	B64Decode(encode_str_size, encode_str, &decode_str_size, decode_str, NON_STANDARD_BASE64);
+
+
+	printf("decode_str:'%s' decode_str_len=%d \n", decode_str, decode_str_size);
+
+
 
 	ret = memcmp(decode_str, src_str, decode_str_size);
 

@@ -403,11 +403,14 @@ int EVP_DecodeFinal(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl)
  * iDstLen:编码后的数据长度
  * strDstData:存放编码后的数据缓冲区
  * B64Encode(32, out, outLen, (unsigned char*)szDstData);
+ * standardt:标准base64编码标志; 标准:standard_not = STANDARD_BASE64 
  */
-int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned char* strDstData)
+int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned char* strDstData, unsigned int standard)
 {
 	int k;
 	int iOutLen;
+	int index;
+	int len;
 
 	EVP_ENCODE_CTX ctx;
 
@@ -416,8 +419,27 @@ int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned cha
 
 	EVP_EncodeFinal(&ctx, (unsigned char *)&strDstData[iOutLen], &k);
 
+
 	iOutLen += k;
 	*iDstLen = iOutLen;
+	if(STANDARD_BASE64 == standard)
+		return 0;
+
+	for (index = 0; index < iOutLen; index++)
+	{
+		if(strDstData[index] == '+')
+			strDstData[index] = '*';
+		if(strDstData[index] == '/')
+			strDstData[index] = '-';
+		if(strDstData[index] == '=')
+		{
+			strDstData[index] = '.';
+		}
+	}
+
+	printf("iOutLen ==--------==> %d  \n", iOutLen);
+	printf("strDstData[index - 3] %c | %c | %c \n", strDstData[index - 3], strDstData[index - 2], strDstData[index - 1]);
+	
 	return 0;
 }
 
@@ -429,11 +451,15 @@ int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned cha
  * strOrdData:解码前数据
  * iDstLen:解码后的数据长度
  * strDstData:解码编码后的数据缓冲区
+ * standardt:标准base64解码标志; 标准:standard_not = STANDARD_BASE64 
  */
-int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned char* strDstData)
+int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned char* strDstData, unsigned int standard)
 {
+
+
 	int iRet;
 	int k;
+	int index;
 	char strTemp[90];
 	unsigned char *pTemp = strOrdData;
 	int iLeftLen = iOriLen;
@@ -444,6 +470,22 @@ int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned cha
 
 	EVP_ENCODE_CTX ctx;
 	EVP_DecodeInit(&ctx);
+
+	if(STANDARD_BASE64 == standard)
+		return 0;
+
+	for (index = 0; index < iOriLen; index++)
+	{
+		if(strOrdData[index] == '*')
+			strOrdData[index] = '+';
+		if(strOrdData[index] == '-')
+			strOrdData[index] = '/';
+		if(strOrdData[index] == '.')
+		{
+			strOrdData[index] = '=';
+		}
+	}
+
 	while(iLeftLen > 0)
 	{
 		memset(strTemp, 0, sizeof(strTemp));
