@@ -69,6 +69,85 @@ static const unsigned char data_ascii2bin[128]={
 	};
 
 
+// 该函数初始化一个用来进行base64编码的结构
+void EVP_EncodeInit(EVP_ENCODE_CTX *ctx)
+{
+	ctx->length=48;
+	ctx->num=0;
+	ctx->line_num=0;
+}
+
+/** 
+ * 该函数将参数in里面的inl个数据拷贝到结构体ctx里面,
+ * 如果结构体里面有数据，就同时将结构体里面的数据进行BASE64编码并输出到参数out指向的缓存里面，输出数据的长度保存在outl里面。
+ * 注意，在第一次调用本函数的时候，虽然往结构体里面拷贝数据了，
+ * 但是结构体ctx里面开始是没有输入数据存在并且输入数据长度不超出ctx内部存储数据的最长限制，就不会有任何数据被进行BASE64编码，
+ * 也就是说，不会有任何数据输出；
+ * 但是如果输入数据长度比内部存储的数据长，那么就会输出部分经过BASE64编码的数据。数据输出总是在下一层输入前完成的。
+ *
+ */
+void EVP_EncodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl)
+{
+	int i, j;
+	unsigned int total = 0;
+
+	*outl = 0;
+	if(0 == inl)
+		return ;
+	OPENSSL_assert(ctx->length <= (int)sizeof(ctx->enc_data));
+	if((ctx->num + inl) < ctx->length)
+	{
+		memcpy(&(ctx->enc_data[ctx->num]), in, inl);
+		ctx->num += inl;
+		return;
+	}
+	if(0 != ctx->num)
+	{
+		i = ctx->length - ctx->num;
+		memcpy(&(ctx->enc_data[ctx->num]), in, i);
+		in += i;
+		inl -= i;
+		j = EVP_EncodeBlock(out, ctx->enc_data, ctx->length);
+		ctx->num = 0;
+		out += j;
+		*(out++) = '\n';
+		*out = '\0';
+		total = j + 1;
+	}
+	while(inl >= ctx->length)
+	{
+		j = EVP_EncodeBlock(out, in, ctx->length);
+		in += ctx->length;
+		inl -= ctx->length;
+		out += j;
+		*(out++) = '\n';
+		*out = '\0';
+		total += j + 1;
+	}
+	if(0 != inl)
+		memcpy(&(ctx->enc_data[0]), in, inl);
+	ctx->num = inl;
+	*outl = total;
+}
+
+/** 
+ * 该函数将结构体ctx里面剩余数据进行BASE64编码并写入到参数out里面去，输出数据的长度保存在outl里面。
+ *
+ */
+void EVP_EncodeFinal(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl)
+{
+	unsigned int ret = 0;
+	if( 0 != ctx->num)
+	{
+		ret = EVP_EncodeBlock(out, ctx->enc_data, ctx->num);
+		out[ret++] = '\n';
+		out[ret] = '\0';
+		ctx->num = 0;
+	}
+	*outl = ret;
+}
+
+
 
 /** 
  * 功能:该函数将参数f里面的字符串里面的n个字节的字符串进行BASE64编码并输出到参数t里面。返回编码后数据的字节长度。
@@ -107,11 +186,6 @@ int EVP_EncodeBlock(unsigned char *t, const unsigned char *f, int dlen)
 	*t = '\0';
 	return(ret);
 }
-
-
-
-
-
 
 
 /* base64解码 */
@@ -259,7 +333,6 @@ end:
  * 参数：
  * t：接收解码后的数据缓冲区; f：解码前的数据; n：解码前的数据长度。
  */
-
 int EVP_DecodeBlock(unsigned char *t, const unsigned char *f, int n)
 {
 	int i, ret = 0, a, b, c, d;
@@ -285,42 +358,37 @@ int EVP_DecodeBlock(unsigned char *t, const unsigned char *f, int n)
 		b = conv_ascii2bin(*(f++));
 		c = conv_ascii2bin(*(f++));
 		d = conv_ascii2bin(*(f++));
-		if(
+		if((a & 0x80) || (b & 0x80) || (c & 0x80) || (d & 0x80))
+			return -1;
+		l = ((((unsigned long)a) << 18L) | (((unsigned long)b) << 12L) | (((unsigned long)c) << 6L) | (((unsigned long)d)));
+		*(t++) = (unsigned char)(l >> 16L) & 0xff;
+		*(t++) = (unsigned char)(l >>  8L) & 0xff;
+		*(t++) = (unsigned char)(l       ) & 0xff;
+		ret += 3;
 	}
-	
-	
-
+	return ret;
 }
 
-
-
-
-
-
-int EVP_DecodeBlock(unsigned char *t, const unsigned char *f, int n)
-	{
-
-	for (i=0; i<n; i+=4)
-		{
-		if (	(a & 0x80) || (b & 0x80) ||
-			(c & 0x80) || (d & 0x80))
-			return(-1);
-		l=(	(((unsigned long)a)<<18L)|
-			(((unsigned long)b)<<12L)|
-			(((unsigned long)c)<< 6L)|
-			(((unsigned long)d)     ));
-		*(t++)=(unsigned char)(l>>16L)&0xff;
-		*(t++)=(unsigned char)(l>> 8L)&0xff;
-		*(t++)=(unsigned char)(l     )&0xff;
-		ret+=3;
-		}
-	return(ret);
-	}
-
+/** 
+ * 功能：该函数将结构体ctx里面剩余的数据进行BASE64解码并输出到参数out指向的内存中，输出数据长度为outl字节。
+ * 成功返回1，否则返回－1。
+ */
 int EVP_DecodeFinal(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl)
 {
 	int i;
-
+	
+	*outl = 0;
+	if(0 != ctx->num)
+	{
+		i = EVP_DecodeBlock(out, ctx->enc_data, ctx->num);
+		if (i < 0)
+			return -1;
+		ctx->num = 0;
+		*outl = i;
+		return 1;
+	}
+	else
+		return 1;
 
 }
 
@@ -328,51 +396,88 @@ int EVP_DecodeFinal(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl)
 
 
 
-int EVP_DecodeFinal(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl)
-	{
-	int i;
+/** 
+ * base64 编码
+ * iOriLen:编码前的数据长度
+ * strOrdData:编码前数据
+ * iDstLen:编码后的数据长度
+ * strDstData:存放编码后的数据缓冲区
+ * B64Encode(32, out, outLen, (unsigned char*)szDstData);
+ */
+int B64Encode(int iOriLen, unsigned char* strOrdData, int *iDstLen, unsigned char* strDstData)
+{
+	int k;
+	int iOutLen;
 
-	*outl=0;
-	if (ctx->num != 0)
+	EVP_ENCODE_CTX ctx;
+
+	EVP_EncodeInit(&ctx);
+	EVP_EncodeUpdate(&ctx, (unsigned char *)strDstData, (int *)&iOutLen, (unsigned char *)strOrdData,(int)iOriLen);
+
+	EVP_EncodeFinal(&ctx, (unsigned char *)&strDstData[iOutLen], &k);
+
+	iOutLen += k;
+	*iDstLen = iOutLen;
+	return 0;
+}
+
+
+
+/** 
+ * base64 解码
+ * iOriLen:解码前的数据长度
+ * strOrdData:解码前数据
+ * iDstLen:解码后的数据长度
+ * strDstData:解码编码后的数据缓冲区
+ */
+int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned char* strDstData)
+{
+	int iRet;
+	int k;
+	char strTemp[90];
+	unsigned char *pTemp = strOrdData;
+	int iLeftLen = iOriLen;
+	int iInLen;
+	unsigned char *pTemp1 = strDstData;
+	int iInputLen = 64;
+	int iOutLen = 0;
+
+	EVP_ENCODE_CTX ctx;
+	EVP_DecodeInit(&ctx);
+	while(iLeftLen > 0)
+	{
+		memset(strTemp, 0, sizeof(strTemp));
+		if(iLeftLen > iInputLen)
 		{
-		i=EVP_DecodeBlock(out,ctx->enc_data,ctx->num);
-		if (i < 0) return(-1);
-		ctx->num=0;
-		*outl=i;
-		return(1);
+			memcpy(strTemp, pTemp, iInputLen);
+			strcat(strTemp, "\n");
+			pTemp += iInputLen;
+			iLeftLen = iLeftLen - iInputLen;
+			iInLen = iInputLen + 1;
 		}
-	else
-		return(1);
+		else
+		{
+			memcpy(strTemp, pTemp, iLeftLen);
+			strcat(strTemp, "\n");
+			pTemp += iLeftLen;
+			iInLen = iLeftLen + 1;
+			iLeftLen = 0;
+		}
+		iRet = EVP_DecodeUpdate(&ctx, pTemp1, &k, (unsigned char *)strTemp, iInLen);
+		pTemp1 += k;
+		iOutLen += k;
+		if (iRet < 0)
+		{
+			return -1;
+		}
+	}
+	iRet = EVP_DecodeFinal(&ctx, pTemp1, &k);
+	if (iRet < 0)
+	{
+		return -1;
 	}
 
-#ifdef undef
-int EVP_DecodeValid(unsigned char *buf, int len)
-	{
-	int i,num=0,bad=0;
-
-	if (len == 0) return(-1);
-	while (conv_ascii2bin(*buf) == B64_WS)
-		{
-		buf++;
-		len--;
-		if (len == 0) return(-1);
-		}
-
-	for (i=len; i >= 4; i-=4)
-		{
-		if (	(conv_ascii2bin(buf[0]) >= 0x40) ||
-			(conv_ascii2bin(buf[1]) >= 0x40) ||
-			(conv_ascii2bin(buf[2]) >= 0x40) ||
-			(conv_ascii2bin(buf[3]) >= 0x40))
-			return(-1);
-		buf+=4;
-		num+=1+(buf[2] != '=')+(buf[3] != '=');
-		}
-	if ((i == 1) && (conv_ascii2bin(buf[0]) == B64_EOLN))
-		return(num);
-	if ((i == 2) && (conv_ascii2bin(buf[0]) == B64_EOLN) &&
-		(conv_ascii2bin(buf[0]) == B64_EOLN))
-		return(num);
-	return(1);
-	}
-#endif
+	iOutLen += k;
+	*iDstLen = iOutLen;
+	return 0;
+}

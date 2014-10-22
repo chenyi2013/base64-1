@@ -35,28 +35,34 @@ Base64要求把每三个8Bit的字节转换为四个6Bit的字节（3*8 = 4*6 = 
 
 ####  EVP_EncodeInit函数
 
-原型：void EVP_EncodeInit(EVP_ENCODE_CTX *ctx);
-功能：该函数初始化一个用来进行base64编码的结构，事实上，该函数只是简单设置了结构里面几个常量的长度。
-参数： ctx：base64设备上下文。 
+    void EVP_EncodeInit(EVP_ENCODE_CTX *ctx)
+  
+  功能：该函数初始化一个用来进行base64编码的结构，事实上，该函数只是简单设置了结构里面几个常量的长度。
+  参数： ctx：base64设备上下文。 
 
 
-EVP_EncodeUpdate函数
-原型：void EVP_EncodeUpdate(EVP_ENCODE_CTX *ctx,unsigned char *out,int *outl,unsigned char *in,int inl);
-功能：该函数将参数in里面的inl自己数据拷贝到结构体ctx里面，如果结构体里面有数据，就同时将结构体里面的数据进行BASE64编码并输出到参数out指向的缓存里面，输出数据的长度保存在outl里面。注意，在第一次调用本函数的时候，虽然往结构体里面拷贝数据了，但是结构体ctx里面开始是没有输入数据存在并且输入数据长度不超出ctx内部存储数据的最长限制，就不会有任何数据被进行BASE64编码，也就是说，不会有任何数据输出；但是如果输入数据长度比内部存储的数据长，那么就会输出部分经过BASE64编码的数据。数据输出总是在下一层输入前完成的。
+####  EVP_EncodeUpdate函数
+   
+    void EVP_EncodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl, 
+                          const unsigned char *in, int inl)
+  
+  功能：该函数将参数in里面的inl自己数据拷贝到结构体ctx里面，如果结构体里面有数据，就同时将结构体里面的数据进行BASE64编码并输出到参数out指向的缓存里面，输出数据的长度保存在outl里面。注意，在第一次调用本函数的时候，虽然往结构体里面拷贝数据了，但是结构体ctx里面开始是没有输入数据存在并且输入数据长度不超出ctx内部存储数据的最长限制，就不会有任何数据被进行BASE64编码，也就是说，不会有任何数据输出；但是如果输入数据长度比内部存储的数据长，那么就会输出部分经过BASE64编码的数据。数据输出总是在下一层输入前完成的。
+
 参数：
-ctx ：base64设备上下文。
-out ：存放编码后的数据缓冲区。
-outl：编码后的数据长度。
-in  ：编码前数据。
-inl ：编码前的数据长度。
 
-EVP_EncodeFinal函数
-原型：void EVP_EncodeFinal(EVP_ENCODE_CTX *ctx,unsigned char *out,int *outl);
-功能：该函数将结构体ctx里面剩余数据进行BASE64编码并写入到参数out里面去，输出数据的长度保存在outl里面。
-参数：
-ctx ：base64设备上下文。
-out ：存放编码后的数据。
-outl：编码后的数据长度。
+    ctx : base64设备上下文;  out: 存放编码后的数据缓冲区;  
+    outl: 编码后的数据长度;  in : 编码前数据;  inl: 编码前的数据长度。
+
+
+####  EVP_EncodeFinal函数
+
+    void EVP_EncodeFinal(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl)
+
+  功能：该函数将结构体ctx里面剩余数据进行BASE64编码并写入到参数out里面去，输出数据的长度保存在outl里面。
+
+  参数：
+
+    ctx: base64设备上下文;   out: 存放编码后的数据;   outl: 编码后的数据长度。
 
 ####  EVP_EncodeBlock函数
 
