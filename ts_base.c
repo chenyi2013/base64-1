@@ -1,5 +1,7 @@
 #include "ts_base.h"
 
+#include <windows.h>
+
 
 
 /* die if we have to */
@@ -522,4 +524,30 @@ int B64Decode(int iOriLen, unsigned char *strOrdData, int *iDstLen, unsigned cha
 	iOutLen += k;
 	*iDstLen = iOutLen;
 	return 0;
+}
+
+
+
+
+
+void OPENSSL_showfatal (const char *fmta,...)
+{
+	va_list ap;
+	va_start (ap,fmta);
+	vfprintf (stderr,fmta,ap);
+	va_end (ap);
+}
+
+
+
+void OpenSSLDie(const char *file,int line,const char *assertion)
+{
+	OPENSSL_showfatal("%s(%d): OpenSSL internal error, assertion failed: %s\n", file, line, assertion);
+#if !defined(_WIN32) || defined(__CYGWIN__)
+	abort();
+#else
+	/* Win32 abort() customarily shows a dialog, but we just did that... */
+	raise(SIGABRT);
+	_exit(3);
+#endif
 }
